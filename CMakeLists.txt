@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.9 FATAL_ERROR)
+project(mycuda CXX C CUDA)
+set(CMAKE_CUDA_ARCHITECTURES 89)
+set(CMAKE_CUDA_FLAGS "-g -G -O3")
+include_directories(./include)
+add_subdirectory(1_ma)
+add_subdirectory(0_attr)
+

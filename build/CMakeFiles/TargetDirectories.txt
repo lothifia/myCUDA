@@ -1,0 +1,8 @@
+/home/hlab/cuda/myCUDA/build/CMakeFiles/edit_cache.dir
+/home/hlab/cuda/myCUDA/build/CMakeFiles/rebuild_cache.dir
+/home/hlab/cuda/myCUDA/build/1_ma/CMakeFiles/1_matriex.dir
+/home/hlab/cuda/myCUDA/build/1_ma/CMakeFiles/edit_cache.dir
+/home/hlab/cuda/myCUDA/build/1_ma/CMakeFiles/rebuild_cache.dir
+/home/hlab/cuda/myCUDA/build/0_attr/CMakeFiles/attr.dir
+/home/hlab/cuda/myCUDA/build/0_attr/CMakeFiles/edit_cache.dir
+/home/hlab/cuda/myCUDA/build/0_attr/CMakeFiles/rebuild_cache.dir
