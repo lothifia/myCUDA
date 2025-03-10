@@ -6,5 +6,6 @@ set(CMAKE_CUDA_FLAGS "-g -O3")
 include_directories(./include)
 add_subdirectory(1_ma)
 add_subdirectory(2_ma)
+add_subdirectory(3_ma)
 add_subdirectory(0_attr)
 

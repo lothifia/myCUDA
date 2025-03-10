@@ -87,14 +87,14 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/hlab/cuda/myCUDA/build/CMakeFiles /home/hlab/cuda/myCUDA/build//CMakeFiles/progress.marks
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
+	cd /home/hlab/cuda/myCUDA/build && $(CMAKE_COMMAND) -E cmake_progress_start /home/hlab/cuda/myCUDA/build/CMakeFiles /home/hlab/cuda/myCUDA/build/3_ma//CMakeFiles/progress.marks
+	cd /home/hlab/cuda/myCUDA/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 3_ma/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/hlab/cuda/myCUDA/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
 clean:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 clean
+	cd /home/hlab/cuda/myCUDA/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 3_ma/clean
 .PHONY : clean
 
 # The main clean target
@@ -103,70 +103,56 @@ clean/fast: clean
 
 # Prepare targets for installation.
 preinstall: all
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 preinstall
+	cd /home/hlab/cuda/myCUDA/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 3_ma/preinstall
 .PHONY : preinstall
 
 # Prepare targets for installation.
 preinstall/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 preinstall
+	cd /home/hlab/cuda/myCUDA/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 3_ma/preinstall
 .PHONY : preinstall/fast
 
 # clear depends
 depend:
-	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
+	cd /home/hlab/cuda/myCUDA/build && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
 
-#=============================================================================
-# Target rules for targets named 1_matriex
+# Convenience name for target.
+3_ma/CMakeFiles/3_matriex.dir/rule:
+	cd /home/hlab/cuda/myCUDA/build && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 3_ma/CMakeFiles/3_matriex.dir/rule
+.PHONY : 3_ma/CMakeFiles/3_matriex.dir/rule
 
-# Build rule for target.
-1_matriex: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 1_matriex
-.PHONY : 1_matriex
-
-# fast build rule for target.
-1_matriex/fast:
-	$(MAKE) $(MAKESILENT) -f 1_ma/CMakeFiles/1_matriex.dir/build.make 1_ma/CMakeFiles/1_matriex.dir/build
-.PHONY : 1_matriex/fast
-
-#=============================================================================
-# Target rules for targets named 2_matriex
-
-# Build rule for target.
-2_matriex: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 2_matriex
-.PHONY : 2_matriex
-
-# fast build rule for target.
-2_matriex/fast:
-	$(MAKE) $(MAKESILENT) -f 2_ma/CMakeFiles/2_matriex.dir/build.make 2_ma/CMakeFiles/2_matriex.dir/build
-.PHONY : 2_matriex/fast
-
-#=============================================================================
-# Target rules for targets named 3_matriex
-
-# Build rule for target.
-3_matriex: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 3_matriex
+# Convenience name for target.
+3_matriex: 3_ma/CMakeFiles/3_matriex.dir/rule
 .PHONY : 3_matriex
 
 # fast build rule for target.
 3_matriex/fast:
-	$(MAKE) $(MAKESILENT) -f 3_ma/CMakeFiles/3_matriex.dir/build.make 3_ma/CMakeFiles/3_matriex.dir/build
+	cd /home/hlab/cuda/myCUDA/build && $(MAKE) $(MAKESILENT) -f 3_ma/CMakeFiles/3_matriex.dir/build.make 3_ma/CMakeFiles/3_matriex.dir/build
 .PHONY : 3_matriex/fast
 
-#=============================================================================
-# Target rules for targets named attr
+matrix_3.o: matrix_3.cu.o
+.PHONY : matrix_3.o
 
-# Build rule for target.
-attr: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 attr
-.PHONY : attr
+# target to build an object file
+matrix_3.cu.o:
+	cd /home/hlab/cuda/myCUDA/build && $(MAKE) $(MAKESILENT) -f 3_ma/CMakeFiles/3_matriex.dir/build.make 3_ma/CMakeFiles/3_matriex.dir/matrix_3.cu.o
+.PHONY : matrix_3.cu.o
 
-# fast build rule for target.
-attr/fast:
-	$(MAKE) $(MAKESILENT) -f 0_attr/CMakeFiles/attr.dir/build.make 0_attr/CMakeFiles/attr.dir/build
-.PHONY : attr/fast
+matrix_3.i: matrix_3.cu.i
+.PHONY : matrix_3.i
+
+# target to preprocess a source file
+matrix_3.cu.i:
+	cd /home/hlab/cuda/myCUDA/build && $(MAKE) $(MAKESILENT) -f 3_ma/CMakeFiles/3_matriex.dir/build.make 3_ma/CMakeFiles/3_matriex.dir/matrix_3.cu.i
+.PHONY : matrix_3.cu.i
+
+matrix_3.s: matrix_3.cu.s
+.PHONY : matrix_3.s
+
+# target to generate assembly for a file
+matrix_3.cu.s:
+	cd /home/hlab/cuda/myCUDA/build && $(MAKE) $(MAKESILENT) -f 3_ma/CMakeFiles/3_matriex.dir/build.make 3_ma/CMakeFiles/3_matriex.dir/matrix_3.cu.s
+.PHONY : matrix_3.cu.s
 
 # Help Target
 help:
@@ -176,10 +162,10 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... 1_matriex"
-	@echo "... 2_matriex"
 	@echo "... 3_matriex"
-	@echo "... attr"
+	@echo "... matrix_3.o"
+	@echo "... matrix_3.i"
+	@echo "... matrix_3.s"
 .PHONY : help
 
 
@@ -191,6 +177,6 @@ help:
 # No rule that depends on this can have commands that come from listfiles
 # because they might be regenerated.
 cmake_check_build_system:
-	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
+	cd /home/hlab/cuda/myCUDA/build && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
 .PHONY : cmake_check_build_system
 

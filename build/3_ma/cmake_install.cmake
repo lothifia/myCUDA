@@ -1,4 +1,4 @@
-# Install script for directory: /home/hlab/cuda/myCUDA
+# Install script for directory: /home/hlab/cuda/myCUDA/3_ma
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -42,22 +42,3 @@ if(NOT DEFINED CMAKE_OBJDUMP)
   set(CMAKE_OBJDUMP "/usr/bin/objdump")
 endif()
 
-if(NOT CMAKE_INSTALL_LOCAL_ONLY)
-  # Include the install script for each subdirectory.
-  include("/home/hlab/cuda/myCUDA/build/1_ma/cmake_install.cmake")
-  include("/home/hlab/cuda/myCUDA/build/2_ma/cmake_install.cmake")
-  include("/home/hlab/cuda/myCUDA/build/3_ma/cmake_install.cmake")
-  include("/home/hlab/cuda/myCUDA/build/0_attr/cmake_install.cmake")
-
-endif()
-
-if(CMAKE_INSTALL_COMPONENT)
-  set(CMAKE_INSTALL_MANIFEST "install_manifest_${CMAKE_INSTALL_COMPONENT}.txt")
-else()
-  set(CMAKE_INSTALL_MANIFEST "install_manifest.txt")
-endif()
-
-string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
-       "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/hlab/cuda/myCUDA/build/${CMAKE_INSTALL_MANIFEST}"
-     "${CMAKE_INSTALL_MANIFEST_CONTENT}")

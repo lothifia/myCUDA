@@ -10,6 +10,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "/home/hlab/cuda/myCUDA/0_attr/CMakeLists.txt"
   "/home/hlab/cuda/myCUDA/1_ma/CMakeLists.txt"
   "/home/hlab/cuda/myCUDA/2_ma/CMakeLists.txt"
+  "/home/hlab/cuda/myCUDA/3_ma/CMakeLists.txt"
   "/home/hlab/cuda/myCUDA/CMakeLists.txt"
   "CMakeFiles/3.28.3/CMakeCCompiler.cmake"
   "CMakeFiles/3.28.3/CMakeCUDACompiler.cmake"
@@ -144,6 +145,7 @@ set(CMAKE_MAKEFILE_PRODUCTS
   "CMakeFiles/CMakeDirectoryInformation.cmake"
   "1_ma/CMakeFiles/CMakeDirectoryInformation.cmake"
   "2_ma/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "3_ma/CMakeFiles/CMakeDirectoryInformation.cmake"
   "0_attr/CMakeFiles/CMakeDirectoryInformation.cmake"
   )
 
@@ -151,5 +153,6 @@ set(CMAKE_MAKEFILE_PRODUCTS
 set(CMAKE_DEPEND_INFO_FILES
   "1_ma/CMakeFiles/1_matriex.dir/DependInfo.cmake"
   "2_ma/CMakeFiles/2_matriex.dir/DependInfo.cmake"
+  "3_ma/CMakeFiles/3_matriex.dir/DependInfo.cmake"
   "0_attr/CMakeFiles/attr.dir/DependInfo.cmake"
   )
