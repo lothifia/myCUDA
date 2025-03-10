@@ -130,6 +130,19 @@ depend:
 .PHONY : 1_matriex/fast
 
 #=============================================================================
+# Target rules for targets named 2_matriex
+
+# Build rule for target.
+2_matriex: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 2_matriex
+.PHONY : 2_matriex
+
+# fast build rule for target.
+2_matriex/fast:
+	$(MAKE) $(MAKESILENT) -f 2_ma/CMakeFiles/2_matriex.dir/build.make 2_ma/CMakeFiles/2_matriex.dir/build
+.PHONY : 2_matriex/fast
+
+#=============================================================================
 # Target rules for targets named attr
 
 # Build rule for target.
@@ -151,6 +164,7 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... 1_matriex"
+	@echo "... 2_matriex"
 	@echo "... attr"
 .PHONY : help
 

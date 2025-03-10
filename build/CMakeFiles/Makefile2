@@ -64,16 +64,19 @@ CMAKE_BINARY_DIR = /home/hlab/cuda/myCUDA/build
 
 # The main recursive "all" target.
 all: 1_ma/all
+all: 2_ma/all
 all: 0_attr/all
 .PHONY : all
 
 # The main recursive "preinstall" target.
 preinstall: 1_ma/preinstall
+preinstall: 2_ma/preinstall
 preinstall: 0_attr/preinstall
 .PHONY : preinstall
 
 # The main recursive "clean" target.
 clean: 1_ma/clean
+clean: 2_ma/clean
 clean: 0_attr/clean
 .PHONY : clean
 
@@ -108,6 +111,21 @@ clean: 0_attr/clean
 .PHONY : 1_ma/clean
 
 #=============================================================================
+# Directory level rules for directory 2_ma
+
+# Recursive "all" directory target.
+2_ma/all: 2_ma/CMakeFiles/2_matriex.dir/all
+.PHONY : 2_ma/all
+
+# Recursive "preinstall" directory target.
+2_ma/preinstall:
+.PHONY : 2_ma/preinstall
+
+# Recursive "clean" directory target.
+2_ma/clean: 2_ma/CMakeFiles/2_matriex.dir/clean
+.PHONY : 2_ma/clean
+
+#=============================================================================
 # Target rules for target 1_ma/CMakeFiles/1_matriex.dir
 
 # All Build rule for target.
@@ -134,13 +152,39 @@ clean: 0_attr/clean
 .PHONY : 1_ma/CMakeFiles/1_matriex.dir/clean
 
 #=============================================================================
+# Target rules for target 2_ma/CMakeFiles/2_matriex.dir
+
+# All Build rule for target.
+2_ma/CMakeFiles/2_matriex.dir/all:
+	$(MAKE) $(MAKESILENT) -f 2_ma/CMakeFiles/2_matriex.dir/build.make 2_ma/CMakeFiles/2_matriex.dir/depend
+	$(MAKE) $(MAKESILENT) -f 2_ma/CMakeFiles/2_matriex.dir/build.make 2_ma/CMakeFiles/2_matriex.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/hlab/cuda/myCUDA/build/CMakeFiles --progress-num=3,4 "Built target 2_matriex"
+.PHONY : 2_ma/CMakeFiles/2_matriex.dir/all
+
+# Build rule for subdir invocation for target.
+2_ma/CMakeFiles/2_matriex.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/hlab/cuda/myCUDA/build/CMakeFiles 2
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 2_ma/CMakeFiles/2_matriex.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/hlab/cuda/myCUDA/build/CMakeFiles 0
+.PHONY : 2_ma/CMakeFiles/2_matriex.dir/rule
+
+# Convenience name for target.
+2_matriex: 2_ma/CMakeFiles/2_matriex.dir/rule
+.PHONY : 2_matriex
+
+# clean rule for target.
+2_ma/CMakeFiles/2_matriex.dir/clean:
+	$(MAKE) $(MAKESILENT) -f 2_ma/CMakeFiles/2_matriex.dir/build.make 2_ma/CMakeFiles/2_matriex.dir/clean
+.PHONY : 2_ma/CMakeFiles/2_matriex.dir/clean
+
+#=============================================================================
 # Target rules for target 0_attr/CMakeFiles/attr.dir
 
 # All Build rule for target.
 0_attr/CMakeFiles/attr.dir/all:
 	$(MAKE) $(MAKESILENT) -f 0_attr/CMakeFiles/attr.dir/build.make 0_attr/CMakeFiles/attr.dir/depend
 	$(MAKE) $(MAKESILENT) -f 0_attr/CMakeFiles/attr.dir/build.make 0_attr/CMakeFiles/attr.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/hlab/cuda/myCUDA/build/CMakeFiles --progress-num=3,4 "Built target attr"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/hlab/cuda/myCUDA/build/CMakeFiles --progress-num=5,6 "Built target attr"
 .PHONY : 0_attr/CMakeFiles/attr.dir/all
 
 # Build rule for subdir invocation for target.

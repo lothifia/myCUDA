@@ -45,6 +45,7 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
   include("/home/hlab/cuda/myCUDA/build/1_ma/cmake_install.cmake")
+  include("/home/hlab/cuda/myCUDA/build/2_ma/cmake_install.cmake")
   include("/home/hlab/cuda/myCUDA/build/0_attr/cmake_install.cmake")
 
 endif()

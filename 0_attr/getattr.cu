@@ -1,6 +1,6 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
-
+#include <iostream>
 int main() {
     cudaDeviceProp prop;
     int device;
@@ -17,6 +17,7 @@ int main() {
     printf("线程块x方向最大线程数: %d\n", prop.maxThreadsDim[0]);
     printf("线程块y方向最大线程数: %d\n", prop.maxThreadsDim[1]);
     printf("线程块z方向最大线程数: %d\n", prop.maxThreadsDim[2]);
-
+ 
     return 0;
+
 }
