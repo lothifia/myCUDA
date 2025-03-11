@@ -1,11 +1,18 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include "myhead.h"
-#define WARPSIZE 32
+#define BLOCKSIZE 32
 
 __global__ void mulMatrix_coalescing(float* d_A, float* d_B, float* d_C, size_t nx, size_t nk, size_t ny) {
-    size_t ix = WARPSIZE * blockIdx.x + (threadIdx.x / WARPSIZE);
-    size_t iy = WARPSIZE * blockIdx.y + (threadIdx.x % WARPSIZE);
+    size_t cCol = blockIdx.y;
+    size_t cRow = blockIdx.x;
+    size_t tCol = threadIdx.x % BLOCKSIZE;
+    size_t tRow = threadIdx.x / BLOCKSIZE; 
+
+    __shared__ float s_A[BLOCKSIZE * BLOCKSIZE];
+    __shared__ float s_B[BLOCKSIZE * BLOCKSIZE];
+    size_t ix = BLOCKSIZE * blockIdx.x + (threadIdx.x / BLOCKSIZE);
+    size_t iy = BLOCKSIZE * blockIdx.y + (threadIdx.x % BLOCKSIZE);
     float tem = 0;
     if(ix < nx && iy < ny) {
         

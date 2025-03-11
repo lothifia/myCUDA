@@ -1,20 +1,28 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include "myhead.h"
-#define WARPSIZE 32
+#define BLOCKSIZE 32
 
 __global__ void mulMatrix_coalescing(float* d_A, float* d_B, float* d_C, size_t nx, size_t nk, size_t ny) {
-    size_t ix = WARPSIZE * blockIdx.x + (threadIdx.x / WARPSIZE);
-    size_t iy = WARPSIZE * blockIdx.y + (threadIdx.x % WARPSIZE);
+    size_t ix = BLOCKSIZE * blockIdx.x + (threadIdx.x / BLOCKSIZE);
+    size_t iy = BLOCKSIZE * blockIdx.y + (threadIdx.x % BLOCKSIZE);
     float tem = 0;
     if(ix < nx && iy < ny) {
-        
+        int cxy = (ix * nx + iy);
+    printf("blockx%d blocky%d threadx%d, %d \n", blockIdx.x, blockIdx.y, threadIdx.x, cxy);
     // printf("thread %d \n", threadIdx.x);
     // printf("ix, iy idx is,%d %d %d \n", ix, iy,ix * nx + iy);
         for(int i = 0; i < nk; i++) {
             tem += d_A[ix * nk + i] * d_B[iy + i * ny];
         }
         d_C[ix * nx + iy] = tem;
+    }
+}
+
+__global__ void printGridBlockInfo() {
+    if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0) {
+        printf("Grid Dim: (%d, %d, %d)\n", gridDim.x, gridDim.y, gridDim.z);
+        printf("Block Dim: (%d, %d, %d)\n", blockDim.x, blockDim.y, blockDim.z);
     }
 }
 
@@ -26,16 +34,16 @@ int main() {
     printf("Compute Capability: %d.%d\n", deviceProp.major, deviceProp.minor);
     CHECK(cudaSetDevice(dev));
 
-    size_t nx_A = 1 << 13;
+    size_t nx_A = 1 << 6;
     // size_t nx_B = 1 << 13;
-    size_t ny_A = 1 << 13;
+    size_t ny_A = 1 << 6;
     // size_t ny_B = 1 << 13;
     size_t nxy_A = nx_A * ny_A; 
     size_t nByte_A = nx_A * ny_A * sizeof(float);
     // size_t totByte_B = nx_B * ny_B * sizeof(float);
 
-    dim3 gridDim(CEIL_DIV(nx_A, 32), CEIL_DIV(ny_A, 32));
-    dim3 blockDim(32 * 32);
+    dim3 gridDim(CEIL_DIV(nx_A, BLOCKSIZE), CEIL_DIV(ny_A, BLOCKSIZE));
+    dim3 blockDim(BLOCKSIZE * BLOCKSIZE);
 
     float* h_A = (float* )malloc(nByte_A);
     float* h_B = (float* )malloc(nByte_A);
@@ -56,6 +64,8 @@ int main() {
     CHECK(cudaMemcpy(d_A, h_A, nByte_A, cudaMemcpyHostToDevice));
     CHECK(cudaMemcpy(d_B, h_B, nByte_A, cudaMemcpyHostToDevice));
     printf("mem copy time %f \n", cpuSecond() - sTime);
+
+    // printGridBlockInfo<<<gridDim, blockDim>>>(); // print grim
 
     mulMatrix_coalescing<<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
     CHECK(cudaMemcpy(h_C, d_C, nByte_A, cudaMemcpyDeviceToHost));
