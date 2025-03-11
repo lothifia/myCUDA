@@ -3,15 +3,26 @@
 #include "myhead.h"
 #define BLOCKSIZE 32
 
+__global__ void mulMatrix_coalescing_col_fst(float* d_A, float* d_B, float* d_C, size_t nx, size_t nk, size_t ny) {
+    size_t ix = BLOCKSIZE * blockIdx.x + (threadIdx.x % BLOCKSIZE);
+    size_t iy = BLOCKSIZE * blockIdx.y + (threadIdx.x / BLOCKSIZE);
+    float tem = 0;
+    if(ix < nx && iy < ny) {
+        // int cxy = (ix * nx + iy);
+        // printf("blockx%d blocky%d threadx%d, %d ix is %d!\n", blockIdx.x, blockIdx.y, threadIdx.x, cxy, ix);
+        // printf("thread %d \n", threadIdx.x);
+        // printf("ix, iy idx is,%d %d %d \n", ix, iy,ix * nx + iy);
+        for(int i = 0; i < nk; i++) {
+            tem += d_A[ix * nk + i] * d_B[iy + i * ny];
+        }
+        d_C[ix * nx + iy] = tem;
+    }
+}
 __global__ void mulMatrix_coalescing(float* d_A, float* d_B, float* d_C, size_t nx, size_t nk, size_t ny) {
     size_t ix = BLOCKSIZE * blockIdx.x + (threadIdx.x / BLOCKSIZE);
     size_t iy = BLOCKSIZE * blockIdx.y + (threadIdx.x % BLOCKSIZE);
     float tem = 0;
     if(ix < nx && iy < ny) {
-        int cxy = (ix * nx + iy);
-    printf("blockx%d blocky%d threadx%d, %d \n", blockIdx.x, blockIdx.y, threadIdx.x, cxy);
-    // printf("thread %d \n", threadIdx.x);
-    // printf("ix, iy idx is,%d %d %d \n", ix, iy,ix * nx + iy);
         for(int i = 0; i < nk; i++) {
             tem += d_A[ix * nk + i] * d_B[iy + i * ny];
         }
@@ -19,6 +30,17 @@ __global__ void mulMatrix_coalescing(float* d_A, float* d_B, float* d_C, size_t 
     }
 }
 
+__global__ void mulMatrix_coalescing_T(float* d_A, float* d_B, float* d_C, size_t nx, size_t nk, size_t ny) {
+    size_t ix = BLOCKSIZE * blockIdx.x + (threadIdx.x / BLOCKSIZE);
+    size_t iy = BLOCKSIZE * blockIdx.y + (threadIdx.x % BLOCKSIZE);
+    float tem = 0;
+    if(ix < nx && iy < ny) {
+        for(int i = 0; i < nk; i++) {
+            tem += d_A[ix + nk * i] * d_B[iy + i * ny];
+        }
+        d_C[ix * nx + iy] = tem;
+    }
+}
 __global__ void printGridBlockInfo() {
     if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0) {
         printf("Grid Dim: (%d, %d, %d)\n", gridDim.x, gridDim.y, gridDim.z);
@@ -34,9 +56,9 @@ int main() {
     printf("Compute Capability: %d.%d\n", deviceProp.major, deviceProp.minor);
     CHECK(cudaSetDevice(dev));
 
-    size_t nx_A = 1 << 6;
+    size_t nx_A = 1 << 13;
     // size_t nx_B = 1 << 13;
-    size_t ny_A = 1 << 6;
+    size_t ny_A = 1 << 13;
     // size_t ny_B = 1 << 13;
     size_t nxy_A = nx_A * ny_A; 
     size_t nByte_A = nx_A * ny_A * sizeof(float);
@@ -67,7 +89,9 @@ int main() {
 
     // printGridBlockInfo<<<gridDim, blockDim>>>(); // print grim
 
-    mulMatrix_coalescing<<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
+    // mulMatrix_coalescing<<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
+    // mulMatrix_coalescing_col_fst<<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
+    mulMatrix_coalescing_T<<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
     CHECK(cudaMemcpy(h_C, d_C, nByte_A, cudaMemcpyDeviceToHost));
     CHECK(cudaDeviceSynchronize());
     printf("total dev time %f \n", cpuSecond() - sTime);

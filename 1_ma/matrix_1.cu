@@ -8,7 +8,8 @@ __global__ void mulMatrix(float* d_A, float* d_B, float* d_C, size_t nx, size_t 
     float tem = 0;
     if(ix < nx && iy < ny) {
                 int cxy = (ix * nx + iy);
-           printf("blockx%d blocky%d threadx%d thready%d, %d \n", blockIdx.x, blockIdx.y, threadIdx.x, threadIdx.y, cxy);
+                int int_ix = ix;
+           printf("blockx%d blocky%d threadx%d thready%d, %d ix is %d !\n", blockIdx.x, blockIdx.y, threadIdx.x, threadIdx.y, cxy, int_ix);
         for(int i = 0; i < nk; i++) {
             tem += d_A[ix * nk + i] * d_B[iy + i * ny];
         }
