@@ -1,29 +1,45 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include "myhead.h"
-#define BLOCKSIZE 32
+// #define BLOCKSIZE 32
+template <const int BLOCKSIZE>
+__global__ void mul_shared_mem(float* d_A, float* d_B, float* d_C, size_t nx, size_t nk, size_t ny) {
+    size_t cCol = blockIdx.y; // block.y
+    size_t cRow = blockIdx.x; // block.x
+    size_t tCol = threadIdx.x % BLOCKSIZE; // 1. row first ! 2. "mapping a one-dimensional index to a two-dimensional coordinate"
+    size_t tRow = threadIdx.x / BLOCKSIZE; // same on
 
-__global__ void mulMatrix_coalescing(float* d_A, float* d_B, float* d_C, size_t nx, size_t nk, size_t ny) {
-    size_t cCol = blockIdx.y;
-    size_t cRow = blockIdx.x;
-    size_t tCol = threadIdx.x % BLOCKSIZE;
-    size_t tRow = threadIdx.x / BLOCKSIZE; 
+    d_A += cRow * BLOCKSIZE * nk; // the block first row
+    d_B += cCol * BLOCKSIZE; // the block first col
+    d_C += cRow * BLOCKSIZE * ny + cCol * BLOCKSIZE; // the target block fisrt thread
 
     __shared__ float s_A[BLOCKSIZE * BLOCKSIZE];
     __shared__ float s_B[BLOCKSIZE * BLOCKSIZE];
-    size_t ix = BLOCKSIZE * blockIdx.x + (threadIdx.x / BLOCKSIZE);
-    size_t iy = BLOCKSIZE * blockIdx.y + (threadIdx.x % BLOCKSIZE);
-    float tem = 0;
-    if(ix < nx && iy < ny) {
+
+
+    float tmp = 0.0;
+    for(int block_i = 0; block_i < nk; block_i += BLOCKSIZE) {       
+
+        s_A[tRow * BLOCKSIZE + tCol] = d_A[tRow * nk + tCol];
+        s_B[tRow * BLOCKSIZE + tCol] = d_B[tRow * ny + tCol];
+        __syncthreads();
+        d_A += BLOCKSIZE; // next block in A
+        d_B += BLOCKSIZE * ny; // next block in B
         
-    // printf("thread %d \n", threadIdx.x);
-    // printf("ix, iy idx is,%d %d %d \n", ix, iy,ix * nx + iy);
-        for(int i = 0; i < nk; i++) {
-            tem += d_A[ix * nk + i] * d_B[iy + i * ny];
+        
+        for(int i = 0; i < BLOCKSIZE; ++ i) {
+            tmp += s_A[tRow * BLOCKSIZE + i] * s_B[i * BLOCKSIZE + tCol];
         }
-        d_C[ix * nx + iy] = tem;
+        __syncthreads();
     }
+    d_C[tRow * ny + tCol] = tmp; 
+    /*
+         d_C pointer at the start of block.
+         * If in (tRow = 0, tCol = 0) d_C = tmp;
+         * if (1, 1) then d_C have cross the WHOLE line to get the next row and plus col to get the thread.
+    */
 }
+
 
 int main() {
     int dev = 0;
@@ -64,7 +80,8 @@ int main() {
     CHECK(cudaMemcpy(d_B, h_B, nByte_A, cudaMemcpyHostToDevice));
     printf("mem copy time %f \n", cpuSecond() - sTime);
 
-    mulMatrix_coalescing<<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
+    // cudaFuncAttribute(mul_shared_mem<32>, cudaFuncAttributePreferredSharedMemoryCarveout, cudaSharedmemCarveoutMaxShared);
+    mul_shared_mem<32><<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
     CHECK(cudaMemcpy(h_C, d_C, nByte_A, cudaMemcpyDeviceToHost));
     CHECK(cudaDeviceSynchronize());
     printf("total dev time %f \n", cpuSecond() - sTime);
