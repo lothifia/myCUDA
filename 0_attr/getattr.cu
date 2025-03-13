@@ -22,7 +22,30 @@ int main() {
     printf("Smem per Block: %zu\n", prop.sharedMemPerBlock);
     printf("threads per Block: %d\n", prop.maxThreadsPerBlock);
     printf("shared mem per sm: %zu B\n", prop.sharedMemPerMultiprocessor);
- 
+    // printf("", prop.reg)
+
+
+    cudaDeviceProp props = prop;
+    printf("Device ID: %d\n\
+        Name: %s\n\
+        Compute Capability: %d.%d\n\
+        memoryBusWidth: %d\n\
+        maxThreadsPerBlock: %d\n\
+        maxThreadsPerMultiProcessor: %d\n\
+        maxRegsPerBlock: %d\n\
+        maxRegsPerMultiProcessor: %d\n\
+        totalGlobalMem: %zuMB\n\
+        sharedMemPerBlock: %zuKB\n\
+        sharedMemPerMultiprocessor: %zuKB\n\
+        totalConstMem: %zuKB\n\
+        multiProcessorCount: %d\n\
+        Warp Size: %d\n",
+             0, props.name, props.major, props.minor, props.memoryBusWidth,
+             props.maxThreadsPerBlock, props.maxThreadsPerMultiProcessor,
+             props.regsPerBlock, props.regsPerMultiprocessor,
+             props.totalGlobalMem / 1024 / 1024, props.sharedMemPerBlock / 1024,
+             props.sharedMemPerMultiprocessor / 1024, props.totalConstMem / 1024,
+             props.multiProcessorCount, props.warpSize);
     return 0;
 
 }

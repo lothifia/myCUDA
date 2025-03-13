@@ -1,0 +1,1 @@
+add_executable(4_matriex matrix_4.cu)

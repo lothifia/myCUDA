@@ -7,5 +7,6 @@ include_directories(./include)
 add_subdirectory(1_ma)
 add_subdirectory(2_ma)
 add_subdirectory(3_ma)
+add_subdirectory(4_ma)
 add_subdirectory(0_attr)
 
