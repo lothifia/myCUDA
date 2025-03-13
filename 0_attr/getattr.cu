@@ -17,6 +17,11 @@ int main() {
     printf("线程块x方向最大线程数: %d\n", prop.maxThreadsDim[0]);
     printf("线程块y方向最大线程数: %d\n", prop.maxThreadsDim[1]);
     printf("线程块z方向最大线程数: %d\n", prop.maxThreadsDim[2]);
+    printf("reg per thread: %d\n", prop.regsPerBlock / prop.maxThreadsPerBlock);
+    printf("reg per Block: %d\n", prop.regsPerBlock);
+    printf("Smem per Block: %zu\n", prop.sharedMemPerBlock);
+    printf("threads per Block: %d\n", prop.maxThreadsPerBlock);
+    printf("shared mem per sm: %zu B\n", prop.sharedMemPerMultiprocessor);
  
     return 0;
 
