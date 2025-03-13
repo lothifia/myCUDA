@@ -63,12 +63,12 @@ int main() {
     printf("total dev time %f \n", cpuSecond() - sTime);
     printf("tot time %f \n", cpuSecond() - cTime);
     printf("over \n");
-    // for(int i = 0; i < nxy_A; i++) {
-    //     printf("%f ", h_C[i]);
-    //     if(i % nx_A == nx_A - 1) {
-    //         printf("\n");
-    //     }
-    // }
+    for(int i = 0; i < nxy_A; i++) {
+        printf("%f ", h_C[i]);
+        if(i % nx_A == nx_A - 1) {
+            printf("\n");
+        }
+    }
     // for(int i = 0; i < nxy_A; i++) {
     //     printf("%f ", h_A[i]);
     //     if(i % nx_A == nx_A - 1) {
