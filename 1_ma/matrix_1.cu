@@ -6,7 +6,7 @@ __global__ void mulMatrix(float* d_A, float* d_B, float* d_C, size_t nx, size_t 
     size_t ix = blockDim.x * blockIdx.x + threadIdx.x;
     size_t iy = blockDim.y * blockIdx.y + threadIdx.y;
     float tem = 0;
-    printf("sbzjq");
+    // printf("sbzjq");
     if(ix < nx && iy < ny) {
                 int cxy = (ix * nx + iy);
                 int int_ix = ix;
@@ -64,12 +64,12 @@ int main() {
     printf("total dev time %f \n", cpuSecond() - sTime);
     printf("tot time %f \n", cpuSecond() - cTime);
     printf("over \n");
-    for(int i = 0; i < nxy_A; i++) {
-        printf("%f ", h_C[i]);
-        if(i % nx_A == nx_A - 1) {
-            printf("\n");
-        }
-    }
+    // for(int i = 0; i < nxy_A; i++) {
+    //     printf("%f ", h_C[i]);
+    //     if(i % nx_A == nx_A - 1) {
+    //         printf("\n");
+    //     }
+    // }
     // for(int i = 0; i < nxy_A; i++) {
     //     printf("%f ", h_A[i]);
     //     if(i % nx_A == nx_A - 1) {

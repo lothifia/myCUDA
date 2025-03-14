@@ -9,6 +9,7 @@ __global__ void mul_shared_mem_1d(float* d_A, float* d_B, float* d_C, size_t nx,
     size_t cRow = blockIdx.x; // block.x
     size_t tCol = threadIdx.x % BN; // 1. row first ! 2. "mapping a one-dimensional index to a two-dimensional coordinate"
     size_t tRow = threadIdx.x / BN; // same on
+    printf("tCOl is%d \n", tCol);
 
     d_A += cRow * AK * nk; // the block first row
     d_B += cCol * BN; // the block first col
@@ -27,6 +28,7 @@ __global__ void mul_shared_mem_1d(float* d_A, float* d_B, float* d_C, size_t nx,
     for(int block_i = 0; block_i < nk; block_i += AK) {       
         s_A[innerAx * AK + innerAy] = d_A[innerAx * nk + innerAy];
         s_B[innerBx * BN + innerBy] = d_B[innerBx * ny + innerBy];
+        // 512 one time
         __syncthreads();
         d_A += AK; // next block in A
         d_B += AK * ny; // next block in B
@@ -40,6 +42,42 @@ __global__ void mul_shared_mem_1d(float* d_A, float* d_B, float* d_C, size_t nx,
     }
     for (int i = 0; i < tmp; ++ i) {
         d_C[(tRow * tmp + i) * ny + tCol] = threadTmp[i];
+    }
+}
+template <const int AM, const int AK, const int AN, const int TM>
+__global__ void mul_shared_mem_1d_re(float* d_A, float* d_B, float* d_C, int M, int K, int N) {
+    int block_x = blockIdx.x;
+    int block_y = blockIdx.y;
+    int thread_Row = threadIdx.x / AN;
+    int thread_Col = threadIdx.x % AN;
+    __shared__ float s_A[AM * AK];
+    __shared__ float s_B[AK * AN];
+    float thread_TM[TM]{0.0};
+    d_A += block_x * AM * K;
+    d_B += block_y * AN;
+    d_C += block_x * AM * N + block_y * AN;
+    int innerAx = thread_Row; 
+    int innerAy = thread_Col;
+    // int innerBx =  //not use
+    int innerBy = thread_Col;
+    for(int iBlock = 0; iBlock < K; iBlock += AK) {
+        // load A but every thread load one element
+        s_A[thread_Row * AK + thread_Col] = d_A[thread_Row * K + thread_Col];  
+        s_B[thread_Row * AN + thread_Col] = d_B[thread_Row * N + thread_Col];
+        __syncthreads();
+        d_A += AK;
+        d_B += AK * N;
+
+        for(int sB_row = 0; sB_row < AK; ++ sB_row) {
+            float tmpB = s_B[sB_row * AN + innerBy];
+            for(int sA_Col = 0; sA_Col < TM; ++ sA_Col) {
+                thread_TM[sA_Col] += s_A[(thread_Row * TM + sA_Col) * AK + sB_row] * tmpB;
+            }
+        }
+        __syncthreads();
+    }
+    for(int i = 0; i < TM; ++ i) {
+        d_C[(thread_Row  * TM + i) * N + thread_Col] = thread_TM[i];
     }
 }
 template <const int BLOCKSIZE>
@@ -126,7 +164,8 @@ int main() {
 
     // cudaFuncAttribute(mul_shared_mem<32>, cudaFuncAttributePreferredSharedMemoryCarveout, cudaSharedmemCarveoutMaxShared);
     // mul_shared_mem<32><<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
-    mul_shared_mem_1d<AM, AK, BN, tmp><<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
+    // mul_shared_mem_1d<AM, AK, BN, tmp><<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
+    mul_shared_mem_1d_re<AM, AK, BN, tmp><<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
     CHECK(cudaMemcpy(h_C, d_C, nByte_A, cudaMemcpyDeviceToHost));
     CHECK(cudaDeviceSynchronize());
     printf("total dev time %f \n", cpuSecond() - sTime);
