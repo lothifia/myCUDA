@@ -6,10 +6,11 @@ __global__ void mulMatrix(float* d_A, float* d_B, float* d_C, size_t nx, size_t 
     size_t ix = blockDim.x * blockIdx.x + threadIdx.x;
     size_t iy = blockDim.y * blockIdx.y + threadIdx.y;
     float tem = 0;
+    printf("sbzjq");
     if(ix < nx && iy < ny) {
                 int cxy = (ix * nx + iy);
                 int int_ix = ix;
-           printf("blockx%d blocky%d threadx%d thready%d, %d ix is %d !\n", blockIdx.x, blockIdx.y, threadIdx.x, threadIdx.y, cxy, int_ix);
+        //    printf("blockx%d blocky%d threadx%d thready%d, %d ix is %d !\n", blockIdx.x, blockIdx.y, threadIdx.x, threadIdx.y, cxy, int_ix);
         for(int i = 0; i < nk; i++) {
             tem += d_A[ix * nk + i] * d_B[iy + i * ny];
         }
@@ -26,9 +27,9 @@ int main() {
     printf("Compute Capability: %d.%d\n", deviceProp.major, deviceProp.minor);
     CHECK(cudaSetDevice(dev));
 
-    size_t nx_A = 1 << 6;
+    size_t nx_A = 1 << 13;
     // size_t nx_B = 1 << 13;
-    size_t ny_A = 1 << 6;
+    size_t ny_A = 1 << 13;
     // size_t ny_B = 1 << 13;
     size_t nxy_A = nx_A * ny_A; 
     size_t nByte_A = nx_A * ny_A * sizeof(float);

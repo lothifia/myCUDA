@@ -89,9 +89,9 @@ int main() {
     printf("Compute Capability: %d.%d\n", deviceProp.major, deviceProp.minor);
     CHECK(cudaSetDevice(dev));
 
-    size_t nx_A = 1 << 7;
+    size_t nx_A = 1 << 13;
     // size_t nx_B = 1 << 13;
-    size_t ny_A = 1 << 7;
+    size_t ny_A = 1 << 13;
     // size_t ny_B = 1 << 13;
     size_t nxy_A = nx_A * ny_A; 
     size_t nByte_A = nx_A * ny_A * sizeof(float);
@@ -131,7 +131,7 @@ int main() {
     CHECK(cudaDeviceSynchronize());
     printf("total dev time %f \n", cpuSecond() - sTime);
     printf("over \n");
-    for(int i = 0; i < nxy_A; i++) {
+    for(int i = 0; i < nxy_A / nx_A; i++) {
         printf("%f ", h_C[i]);
         if(i % nx_A == nx_A - 1) {
             printf("\n");
