@@ -5,31 +5,33 @@
 // #define BLOCKSIZE 32
 template <const int BM, const int BK, const int BN, const int TM, const int TN>
 __global__ void mul_shared_mem_2d(float* A, float* B, float* C, int M, int K, int N) {
-    int block_row = blockIdx.x;
-    int block_col = blockIdx.y;
-    int thread_Row = threadIdx.x / (BN / TN);
+    int block_row = blockIdx.x; // block row
+    int block_col = blockIdx.y; // block col    
+    int thread_Row = threadIdx.x / (BN / TN); // thread
     int thread_Col = threadIdx.x % (BN / TN /* BN / TN -> thread"block"*/);
     __shared__ float s_A[BM * BK];
     __shared__ float s_B[BK * BN];
     float thread_TM[TM * TN]{0.0};
 
-    const int totalRes = BM * BN;
-    const int numThreadBlock = totalRes / (TM * TN);
-
-    const int strideA = numThreadBlock / BK;
+    const int totalResPerBlock = BM * BN;
+    const int numThreadBlocktile = totalResPerBlock / (TM * TN);
+    // printf("totalResPerBlock %d numThreadBlocktile %d \n", totalResPerBlock, numThreadBlocktile);
+    assert(numThreadBlocktile == blockDim.x);
+    const int strideA = numThreadBlocktile / BK;
     const int innerAx = threadIdx.x / BK;
     const int innerAy = threadIdx.x % BK;
-    const int strideB = numThreadBlock / BN;
+    const int strideB = numThreadBlocktile / BN;
     const int innerBx = threadIdx.x / BN;
     const int innerBy = threadIdx.x % BN;
 
+    // printf("strideA %d innerAx %d innerAy %d strideB %d innerBx %d innerBy %d \n", strideA, innerAx, innerAy, strideB, innerBx, innerBy);
     float regM[TM]{0.0};
     float regN[TN]{0.0};
     A += block_row * BM * K;
     B += block_col * BN;
     C += block_row * BM * N + block_col * BN;
-    for(int block_idx = 0; block_idx < N; block_idx += BK) {
-        for(int row_offest = 0; row_offest < BN; row_offest += strideA) {
+    for(int block_idx = 0; block_idx < K; block_idx += BK) {
+        for(int row_offest = 0; row_offest < BM; row_offest += strideA) {
             s_A[innerAy + (innerAx + row_offest) * BK] = A[innerAy + (innerAx + row_offest) * K];
         }
         for(int row_offest = 0; row_offest < BK; row_offest += strideB) {
@@ -43,7 +45,7 @@ __global__ void mul_shared_mem_2d(float* A, float* B, float* C, int M, int K, in
                 regM[j] = s_A[idx_BK +  (thread_Row * TM + j) * BK];
             }
             for(int j = 0; j < TN; ++j) {
-                regN[j] = s_B[idx_BK * BN + TN * block_col + j];       
+                regN[j] = s_B[idx_BK * BN + TN * thread_Col + j];       
             }
             for(int i = 0; i < TM; ++i) {
                 for(int j = 0; j < TN; ++j) {
@@ -110,12 +112,12 @@ int main() {
     CHECK(cudaDeviceSynchronize());
     printf("total dev time %f \n", cpuSecond() - sTime);
     printf("over \n");
-    for(int i = 0; i < nxy_A / nx_A; i++) {
-        printf("%f ", h_C[i]);
-        if(i % nx_A == nx_A - 1) {
-            printf("\n");
-        }
-    }
+    // for(int i = 0; i < nxy_A / nx_A; i++) {
+    //     printf("%f ", h_C[i]);
+    //     if(i % nx_A == nx_A - 1) {
+    //         printf("\n");
+    //     }
+    // }
     // for(int i = 0; i < nxy_A; i++) {
     //     printf("%f ", h_A[i]);
     //     if(i % nx_A == nx_A - 1) {
