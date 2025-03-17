@@ -9,5 +9,6 @@ add_subdirectory(2_ma)
 add_subdirectory(3_ma)
 add_subdirectory(4_ma)
 add_subdirectory(5_ma)
+add_subdirectory(6_ma)
 add_subdirectory(0_attr)
 
