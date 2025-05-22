@@ -17,8 +17,15 @@ __global__ void mulMatrix(float* d_A, float* d_B, float* d_C, size_t nx, size_t 
         d_C[ix * nx + iy] = tem;
     }
 }
+__global__ void hellocuda() {
+    int ix = blockDim.x * blockIdx.x + threadIdx.x;
+    printf("hello cuda\n");
+}
 
 int main() {
+    hellocuda<<<1, 1>>>();
+    CHECK(cudaDeviceSynchronize());
+    
     double cTime = cpuSecond();
     int dev = 0;
     cudaDeviceProp deviceProp;
