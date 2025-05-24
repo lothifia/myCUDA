@@ -1,10 +1,12 @@
-#define baseline 0
-#define V0 1
 #include <cstdio>
 #include "thrust/host_vector.h"
 #include "thrust/device_vector.h"
 
 #include "cute/tensor.hpp"
+
+#define baseline 0
+#define V0 1
+#define warp_size 32
 
 using namespace cute;
 
@@ -27,6 +29,21 @@ __device__ void WarpReduce(volatile float* smem, int tidx) {
     smem[tidx] = x; __syncwarp();
     // print("hi");
 
+}
+__device__ float WarpShuffle(float sum) {
+    // warp reduce    
+    // 1. 返回前面的thread向后面的thread要的数据，比如__shfl_down_sync(0xffffffff, sum, 16)那就是返回16号线程，17号线程的数据
+    // 2. 使用warp shuffle指令的数据交换不会出现warp在shared memory上交换数据时的不一致现象，这一点是由GPU driver完成，故无需任何sync, 比如syncwarp
+    // 3. 原先15-19行有5个if判断block size的大小，目前已经被移除，确认了一下__shfl_down_sync等warp shuffle指令可以handle一个block或一个warp的线程数量<32，不足32会自动填充0
+        sum += __shfl_down_sync(0xffffffff, sum, 16); 
+        sum += __shfl_down_sync(0xffffffff, sum, 8); 
+        sum += __shfl_down_sync(0xffffffff, sum, 4); 
+        sum += __shfl_down_sync(0xffffffff, sum, 2); 
+    // // if(blockDim.x >= 2) {
+    //     sum += __shfl_down_sync(0xFFFFFFFF, sum, 1); 
+    // }
+        sum += __shfl_down_sync(0xffffffff, sum, 1);
+    return sum;
 }
 
 template<int block_size>
@@ -265,12 +282,14 @@ __global__ void cuda_reduce_v5(float* A, float* B, float* C, int N) {
 }
 
 // 线程数远小于N
+// 一共640 T， 控制1025个数据， 
 template<int block_size>
 __global__ void cuda_reduce_v6(float* A, float* B, float* C, int N) {
     int tidx = threadIdx.x;
     int gidx = blockDim.x * blockIdx.x + threadIdx.x;
         // 使用smem 进行加速 smem 需要静态申请
         float temp = 0.0f;
+        // for 循环讲N数据读入到每个block内
         for(int i = gidx; i < N; i += blockDim.x * gridDim.x) {
             temp += A[i];
         }
@@ -283,6 +302,7 @@ __global__ void cuda_reduce_v6(float* A, float* B, float* C, int N) {
            epoch 3：idx = 4(8)： 
            epoch n： i = i *2
         */
+       // block内进行展开求和
         BlockReduce<block_size>(smem, tidx);
 
         if(tidx == 0) {
@@ -291,19 +311,107 @@ __global__ void cuda_reduce_v6(float* A, float* B, float* C, int N) {
         }
 }
 
+template<int block_size>
+__global__ void cuda_reduce_v7_warpshf(float* A, float* B, float* C, int N) {
+    //     float sum = 0;//当前线程的私有寄存器，即每个线程都会拥有一个sum寄存器
+
+    // unsigned int tid = threadIdx.x;
+    // unsigned int gtid = blockIdx.x * block_size + threadIdx.x;
+
+    // // 分配的线程总数
+    // unsigned int total_thread_num = block_size * gridDim.x;
+    // // 基于v5的改进：不用显式指定一个线程处理2个元素，而是通过L30的for循环来自动确定每个线程处理的元素个数
+    // for (int i = gtid; i < N; i += total_thread_num)
+    // {
+    //     sum += A[i];
+    // }
+    
+    // // 用于存储partial sums for each warp of a block
+    // __shared__ float WarpSums[block_size / warp_size]; 
+    // // 当前线程在其所在warp内的ID
+    // const int laneId = tid % warp_size;
+    // // 当前线程所在warp在所有warp范围内的ID
+    // const int warpId = tid / warp_size; 
+    // // 对当前线程所在warp作warpshuffle操作，直接交换warp内线程间的寄存器数据
+    // sum = WarpShuffle(sum);
+    // if(laneId == 0) {
+    //     WarpSums[warpId] = sum;
+    // }
+    // __syncthreads();
+    // //至此，得到了每个warp的reduce sum结果
+    // //接下来，再使用第一个warp(laneId=0-31)对每个warp的reduce sum结果求和
+    // //首先，把warpsums存入前blockDim.x / WarpSize个线程的sum寄存器中
+    // //接着，继续warpshuffle
+    // sum = (tid < block_size / warp_size) ? WarpSums[laneId] : 0;
+    // // Final reduce using first warp
+    // if (warpId == 0) {
+    //     sum = WarpShuffle(sum); 
+    // }
+    // // store: 哪里来回哪里去，把reduce结果写回显存
+    // if (tid == 0) {
+    //     C[blockIdx.x] = sum;
+    // }
+    int tidx = threadIdx.x;
+    int gidx = blockDim.x * blockIdx.x + threadIdx.x;
+    // 使用smem 进行加速 smem 需要静态申请
+    float warp_sum = 0.0f;
+    // for 循环讲N数据读入到每个block内
+    for(int i = gidx; i < N; i += blockDim.x * gridDim.x) {
+        warp_sum += A[i];
+    }
+
+    // 把block 内的 每个 warp 展开
+    __shared__ float smem[block_size / warp_size];
+    // 计算每个warp的和
+    /* epoch 1: idx = 1(2):0 ——> 0, 0 + 1; 1 x ; 2 -> 2, 2 + 1; 3x
+        epoch 2：idx = 2(4)：0 ——> 0, 0 + 2; 1 x ; 2x ; 3x; 4 -> 4, 
+        epoch 3：idx = 4(8)： 
+        epoch n： i = i *2
+    */
+    warp_sum =  WarpShuffle(warp_sum);
+
+    const int widx = tidx / warp_size;
+    const int wtidx = tidx % warp_size;
+    if(wtidx == 0) {
+        smem[widx] = warp_sum;
+        printf("warpId = %d, sum = %f, blockIdx.x = %d\n", widx, warp_sum, blockIdx.x);
+    }
+    __syncthreads();
+
+    // 每个block 内部 求出了每个warpSize 的值， 并存在widx的smem处
+    // 再做一次 warp shuffle
+    // 计算每个warp的
+
+    if(tidx < (block_size / warp_size)) {
+        warp_sum = smem[wtidx];
+    }else {
+        warp_sum = 0.0f;
+    }
+    //  前 block_size / warpSize的 warp sum 才有值 xxxxxxxx! 错了 前32个线程做展开
+    // warp sum 进行一次warp shuffle 这里只有前  block_size / warp_size 个 thread有值
+    // 其他的线程都是0
+    if(tidx < 33) {
+        warp_sum = WarpShuffle(warp_sum);
+    }
+    // block内部求和结束 存回HBm
+    if(tidx == 0) {
+        C[blockIdx.x] = warp_sum;
+    }
+}
+
 int main() {
-    const int N = (1 << 19) + 1;
+    const int N = (1 << 10) + 1;
     printf("N = %d\n", N);
     printf("res is %f\n", float(N) * 10.0f);
     const int nbytes = N * sizeof(float);
     const int block_x = 128;
-    const int grid_x = ceil_div(N, block_x);
+    // const int grid_x = ceil_div(N, block_x);
+    const int grid_x = 5;
     const int block_size = block_x;
     float *h_A, *h_B, *h_C, *res_C;
     float *d_A, *d_B, *d_C, *out_C;
     cudaEvent_t start, stop;
     float time;
-    printf("gird_x * block_x = %d\n", grid_x * block_x);
 
     h_A = (float *)malloc(nbytes);
     h_B = (float *)malloc(nbytes);
@@ -343,11 +451,18 @@ int main() {
     // cuda_reduce_v0<block_size><<<grid, block>>>(d_A, d_B, d_C, N);
     // cuda_reduce_v2<block_size><<<grid, block>>>(d_A, d_B, d_C, N);
     // cuda_reduce_v2<block_size><<<grid, block>>>(d_A, d_B, d_C, N);
-    cuda_reduce_v6<block_size><<<grid, block>>>(d_A, d_B, d_C, N);
-    cuda_reduce_v6<block_size><<<1, block>>>(d_C, d_B, out_C, N);
+    // 求和：每个block的结果存入了D_C的第blockIdx.x个位置， 所以对这些位置进行一个reduce 即可。
+    cuda_reduce_v7_warpshf<block_size><<<grid, block>>>(d_A, d_B, d_C, N);
+    cuda_reduce_v7_warpshf<block_size><<<1, block>>>(d_C, d_B, out_C, grid.x);
+    // cuda_reduce_v6<block_size><<<grid, block>>>(d_A, d_B, d_C, N);
+    // cuda_reduce_v6<block_size><<<1, block>>>(d_C, d_B, out_C, grid.x);
 
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
+    printf("gird_x * block_x = %d\n", grid_x * block_x);
+    printf("grid.x = %d\n", grid.x);
+    printf("block.x = %d\n", block.x);
+
     cudaMemcpy(h_C, d_C, grid_x * block_x * sizeof(float), cudaMemcpyDeviceToHost);
     cudaMemcpy(res_C, out_C, 1 * sizeof(float), cudaMemcpyDeviceToHost);
     cudaEventElapsedTime(&time, start, stop);
