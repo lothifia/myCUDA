@@ -76,8 +76,6 @@ __global__ void FP16GeluKernel(__half* x, __half* y, int n) {
     __half y_reg[VecSize];
     __half x_reg[VecSize];
     using ArrT = AlignedVector<__half, VecSize>; 
-    if(offset < n) 
-    printf("threadidx%d, offest %d \n", threadIdx.x, offset);
     for(int idx = offset; idx < n; idx += stride) {
         const __half* x_in = x + idx;
         const __half* x_in8 = x + idx; // 每个线程处理8个元素 
@@ -103,11 +101,11 @@ void gelu_check(float *x, int n) {
 // baseline
 int main() {
     // 对齐
-    int pad_n = 1007;
+    int pad_n = 1001;
     const int block_size = 512;
     const int vec_size = 8;
     int n = pad_n % vec_size == 0? pad_n: pad_n + (vec_size - pad_n%vec_size);
-    
+
     float milliseconds = 0;
     
     // __half *x = new __half[n];
