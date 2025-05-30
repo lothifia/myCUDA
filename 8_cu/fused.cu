@@ -99,7 +99,7 @@ int main() {
     
     // bias mask scale add
 
-    int n = 800;
+    int n = 801;
     const int block_size = 256;
     const int vec_size = 8; // 8 elements per vector
     int pad_n = n % vec_size == 0 ? n : n + (vec_size - n % vec_size);
@@ -167,7 +167,7 @@ int main() {
         
     }
 
-    for(int i = 0; i < pad_n; ++i) {
+    for(int i = 0; i < n; ++i) {
         printf("h_b[%d] = %f\n", i, __half2float(h_b[i]));
     }
 
