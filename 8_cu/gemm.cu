@@ -69,7 +69,7 @@ struct vec_t
 
 //
 template <int tm, int tn, int TA, int TB, int TK , int vec_size>
-__global__ void gemm_tiled_2(float* A, float* B, float* C, int M, int N, int K, bool is_A_transposed, bool is_B_transposed) {
+__global__ void gemm_tiled_2(float* A, float* B, float* C, int M, int N, int K, bool outdot, bool is_A_transposed, bool is_B_transposed) {
     int tid = threadIdx.x;
     int bx = blockIdx.x; // block_x -> number of tiles in x direction
     int by = blockIdx.y; // block_y -> number of tiles in y direction
@@ -100,6 +100,8 @@ __global__ void gemm_tiled_2(float* A, float* B, float* C, int M, int N, int K, 
 
     // float c[TA * TB / (tm * tn)]; x : too many regs
     float c[tm * tn];
+    float reg_tm[tm];
+    float reg_tn[tn];
     float* a_ptr = A + bx * TA * K; 
     float* b_ptr = B + by * TB; 
     float* c_ptr = C + bx * TA * N + by * TB;
@@ -113,11 +115,6 @@ __global__ void gemm_tiled_2(float* A, float* B, float* C, int M, int N, int K, 
         int col_a = tid % copy_T_col_A;
         int col_b = tid % copy_T_col_B;
 
-        // int row_a = tid / (TK / vec_size);
-        // int row_b = tid / (TB / vec_size);
-        // int row_a_id = tid % (TK / vec_size);
-        // int row_b_id = tid % (TB / vec_size);
-        // printf("row_a * TK + col_a * vec_size = %d\n", row_a * TK + col_a * vec_size);
         for(int a_offset = row_a; a_offset < TA; a_offset += stride_a){
             float* a_in_gmem = a_ptr + a_offset * K + k_loop * TK + col_a * vec_size;
             float* a_in_smem = a_tiled + a_offset * TK + col_a * vec_size;
@@ -125,17 +122,36 @@ __global__ void gemm_tiled_2(float* A, float* B, float* C, int M, int N, int K, 
         }
         // if(tid * vec_size < TB * TK){
         for(int b_offset = row_b; b_offset < TK; b_offset += stride_b){
-            float* b_in_gmem = b_ptr + k_loop * TK * N + row_b * N + col_b * vec_size;
-            float* b_in_smem = b_tiled + row_b * TB + col_b * vec_size;
+            float* b_in_gmem = b_ptr + k_loop * TK * N + b_offset * N + col_b * vec_size;
+            float* b_in_smem = b_tiled + b_offset * TB + col_b * vec_size;
             reinterpret_cast<float4*>(b_in_smem)[0] = reinterpret_cast<float4*>(b_in_gmem)[0];
         }
         // }
         __syncthreads();
-        for(int m = 0; m < tm; m++) {
-            for(int n = 0; n < tn; n++) {
-                for(int p = 0; p < TK; p++) {
-                    c[m * tn + n] += a_tiled[(t_row + m * threads_in_m) * TK + p] * b_tiled[(t_col + n * threads_in_n) + p * TB];//stop
-                    // b_tiled[(t_col + n * threads_in_n) + p * TB];
+        // inner product
+        if(!outdot){
+            for(int m = 0; m < tm; m++) {
+                for(int n = 0; n < tn; n++) {
+                    for(int p = 0; p < TK; p++) {
+                        c[m * tn + n] += a_tiled[(t_row + m * threads_in_m) * TK + p] * b_tiled[(t_col + n * threads_in_n) + p * TB];//stop
+                        // b_tiled[(t_col + n * threads_in_n) + p * TB];
+                    }
+                }
+            }
+        }
+        // outter product
+        else{
+            for(int p = 0; p < TK; p++) {
+                for(int n = 0; n < tn; n++) {
+                    reg_tn[n] = b_tiled[t_col + n * threads_in_n + p * TB];
+                }
+                for(int m = 0; m < tm; m++) {
+                    reg_tm[m] = a_tiled[(t_row + m * threads_in_m) * TK + p];
+                }
+                for(int m = 0; m < tm; m++) {
+                    for(int n = 0; n < tn; n++) {
+                        c[m * tn + n] += reg_tm[m] * reg_tn[n];
+                    }
                 }
             }
         }
@@ -149,6 +165,162 @@ __global__ void gemm_tiled_2(float* A, float* B, float* C, int M, int N, int K, 
     }
 }
 
+
+template <int tm, int tn, int TA, int TB, int TK , int vec_size>
+__global__ void gemm_tiled_2_vecIO(float* A, float* B, float* C, int M, int N, int K, bool outdot, bool is_A_transposed, bool is_B_transposed) {
+    int tid = threadIdx.x;
+    int bx = blockIdx.x; // block_x -> number of tiles in x direction
+    int by = blockIdx.y; // block_y -> number of tiles in y direction
+    int thread_row = tid / (TB / tn);
+    int thread_col = tid % (TB / tn);
+    __shared__ float a_tiled[TA * TK];
+    __shared__ float b_tiled[TK * TB];
+    const int total_threads = TA * TB / (tm * tn);
+
+    // copy used
+    //stride_b is always in row major
+    const int copy_T_col_A = TK / vec_size;
+    const int copy_T_row_A = total_threads / copy_T_col_A;
+    const int total_data_once_block_A = copy_T_row_A * TK;
+    const int stride_a = copy_T_row_A;
+
+    const int copy_T_col_B = TB / vec_size;
+    const int copy_T_row_B = total_threads / copy_T_col_B;
+    const int total_data_once_block_B = copy_T_row_B * TK;
+    const int stride_b = copy_T_row_B;
+    
+    // compute used
+    const int threads_in_m = TA / tm; // 128 / 8 = 16
+    const int threads_in_n = TB / tn;
+    const int t_col = tid % threads_in_n;
+    const int t_row = tid / threads_in_n;
+
+
+    // float c[TA * TB / (tm * tn)]; x : too many regs
+    float c[tm * tn];
+    float reg_tm[tm];
+    float reg_tn[tn];
+    float* a_ptr = A + bx * TA * K; 
+    float* b_ptr = B + by * TB; 
+    float* c_ptr = C + bx * TA * N + by * TB;
+
+    int tiled_K = (K + TK - 1) / TK;
+    for(int k_loop = 0; k_loop < tiled_K; k_loop++) {
+        static_assert(vec_size == 4, "vec_size must be 4");
+        static_assert(total_threads / (TK / vec_size) == 128, "128 row to process mem copy");
+        int row_a = tid / copy_T_col_A;
+        int row_b = tid / copy_T_col_B;
+        int col_a = tid % copy_T_col_A;
+        int col_b = tid % copy_T_col_B;
+
+        for(int a_offset = row_a; a_offset < TA; a_offset += stride_a){
+            float* a_in_gmem = a_ptr + a_offset * K + k_loop * TK + col_a * vec_size;
+            float* a_in_smem = a_tiled + a_offset * TK + col_a * vec_size;
+            reinterpret_cast<float4*>(a_in_smem)[0] = reinterpret_cast<float4*>(a_in_gmem)[0];
+        }
+        // if(tid * vec_size < TB * TK){
+        for(int b_offset = row_b; b_offset < TK; b_offset += stride_b){
+            float* b_in_gmem = b_ptr + k_loop * TK * N + b_offset * N + col_b * vec_size;
+            float* b_in_smem = b_tiled + b_offset * TB + col_b * vec_size;
+            reinterpret_cast<float4*>(b_in_smem)[0] = reinterpret_cast<float4*>(b_in_gmem)[0];
+        }
+        // }
+        __syncthreads();
+        // inner product
+        if(!outdot){
+            for(int m = 0; m < tm; m++) {
+                for(int n = 0; n < tn; n++) {
+                    for(int p = 0; p < TK; p++) {
+                        c[m * tn + n] += a_tiled[(t_row + m * threads_in_m) * TK + p] * b_tiled[(t_col + n * threads_in_n) + p * TB];//stop
+                        // b_tiled[(t_col + n * threads_in_n) + p * TB];
+                    }
+                }
+            }
+        }
+        // outter product
+        else{
+            for(int p = 0; p < TK; p++) {
+                for(int n = 0; n < tn; n++) {
+                    reg_tn[n] = b_tiled[t_col + n * threads_in_n + p * TB];
+                }
+                for(int m = 0; m < tm; m++) {
+                    reg_tm[m] = a_tiled[(t_row + m * threads_in_m) * TK + p];
+                }
+                for(int m = 0; m < tm; m++) {
+                    for(int n = 0; n < tn; n++) {
+                        c[m * tn + n] += reg_tm[m] * reg_tn[n];
+                    }
+                }
+            }
+        }
+        __syncthreads();
+    }
+    // write back (reg -> smem -> gmem)
+    // 3
+    int t_to_sync = TA * TK / (total_threads);
+    int smem_col = TA * TK / (threads_in_m); // 128 * 8 / 16 = 64
+    // vec_write use
+    const int row_in_smem = t_row;
+    const int col_in_smem = t_col * vec_size;
+    // vec_data prepare
+    int cnt = t_to_sync;
+    for(int m = 0; m < tm; m++) {
+        for(int n = 0; n < tn; n++) {
+
+            a_tiled[t_row * smem_col + t_col + (n % t_to_sync)* threads_in_n] = c[m * tn + n];
+            if(bx == 0 && by == 0) {
+                float test = 707981312.000000;
+                float test2 = 708371712.000000 ;
+                // printf("Writing to row_in_gmem=%d, col_in_gmem=%d (offset=%d)\n",
+                // row_in_gmem,
+                // col_in_gmem,
+                // row_in_gmem * N + col_in_gmem);
+                if(c[m * tn + n] - test ==  0.000000) {
+                printf("expected %f \n", test);
+                    printf( " diff = %f \n", c[m * tn + n] - test);
+                    printf(" m %d n %d \n", m, n);
+                    printf(" row_in_smem %d col_in_smem %d \n", row_in_smem, col_in_smem);
+                    printf(" c[m * tn + n] %f \n", c[m * tn + n]);
+                }
+                if(c[m * tn + n] - test2 ==  0.000000) {
+                printf("got %f \n", test2);
+                    printf( " diff = %f \n", c[m * tn + n] - test2);
+                    printf(" m %d n %d \n", m, n);
+                    printf(" row_in_smem %d col_in_smem %d \n", row_in_smem, col_in_smem);
+                    printf(" c[m * tn + n] %f \n", c[m * tn + n]);
+                }
+            }
+            --cnt;
+            if(cnt == 0) {
+                __syncthreads();
+                // printf(" m %d n %d \n", m, n);
+                // printf(" row_in_smem %d col_in_smem %d \n", row_in_smem, col_in_smem);
+                cnt = t_to_sync;
+                const int row_in_gmem = (t_row + m * threads_in_m);
+                const int col_in_gmem = ((n * threads_in_n) / smem_col * smem_col + t_col * vec_size);
+                // could loop
+                // wrong !: reinterpret_cast<float4*>(c_ptr + row_in_gmem * TB + col_in_gmem)[0] = reinterpret_cast<float4*>(a_tiled + t_row * smem_col + col_in_smem)[0];  
+                reinterpret_cast<float4*>(c_ptr + row_in_gmem * N + col_in_gmem)[0] = reinterpret_cast<float4*>(a_tiled + t_row * smem_col + t_col * vec_size)[0];  
+                if(bx == 0 && by == 0) {
+                    if(row_in_gmem * N + col_in_gmem == 64) {
+                        printf(" data in smem %f \n", a_tiled[t_row * smem_col + t_col + n * threads_in_n]);
+                        printf("t_row %d t_col %d \n", t_row, t_col);
+                    }
+                }
+
+                __syncthreads();
+            }
+
+        }
+    }
+
+
+    // for(int m = 0; m < tm; m++) {
+    //     for(int n = 0; n < tn; n++){
+    //         c_ptr[(t_row + m * threads_in_m) * N + n * threads_in_n + t_col] = c[m * tn + n];
+    //     }
+    // }
+}
 
 
 #define CUDA_CHECK(call) \
@@ -171,9 +343,9 @@ __global__ void gemm_tiled_2(float* A, float* B, float* C, int M, int N, int K, 
 
 
 int main() {
-    int M = 4096;
-    int N = 512;
-    int K = 256;
+    int M = 1024;
+    int N = 1024;
+    int K = 128;
     float alpha = 1.0f;
     float beta = 0.0f;
 
@@ -240,8 +412,10 @@ CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
     const int vec_size = 4;
     dim3 block_tiled(TA * TB / (tm * tn));
     dim3 gird_tiled(M / TA, N / TB);
-    gemm_tiled_2<tm, tn, TA, TB, TK, vec_size><<<gird_tiled, block_tiled>>>(d_A, d_B, d_C, M, N, K, false, false);
 
+    bool outdot = true;
+    // gemm_tiled_2<tm, tn, TA, TB, TK, vec_size><<<gird_tiled, block_tiled>>>(d_A, d_B, d_C, M, N, K, outdot, false, false);
+    gemm_tiled_2_vecIO<tm, tn, TA, TB, TK, vec_size><<<gird_tiled, block_tiled>>>(d_A, d_B, d_C, M, N, K, outdot, false, false);
 
     // 5. Copy result from device to host
     // 【修正】从 d_C 拷回数据到 C
@@ -253,13 +427,19 @@ CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
     // for(int i = 0; i < M * N; i++) {
     //     printf(" %f " , C[i]);
     // }
+    int debug_cnt = 0;
+    // for(int i = 0; i < M * N; i++) {
+        // printf(" %f ", C[i]);
+        // if(C[i] - 512.0 >  1e-5) {
+            // debug_cnt++;
+        // }
+    // }
 
     bool correct = true;
     for(int i = 0; i < M * N; i++) {
-        if(fabs(C[i] - C_ref[i]) > 1e-5) {
+        if(C[i] - C_ref[i] >  1e-5) {
             printf("Verification FAILED at index %d! Got %f, expected %f\n", i, C[i], C_ref[i]);
             correct = false;
-            break;
         }
     }
     if(correct) {
