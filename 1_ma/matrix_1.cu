@@ -6,7 +6,6 @@ __global__ void mulMatrix(float* d_A, float* d_B, float* d_C, size_t nx, size_t 
     size_t ix = blockDim.x * blockIdx.x + threadIdx.x;
     size_t iy = blockDim.y * blockIdx.y + threadIdx.y;
     float tem = 0;
-    // printf("sbzjq");
     if(ix < nx && iy < ny) {
                 int cxy = (ix * nx + iy);
                 int int_ix = ix;

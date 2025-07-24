@@ -7,6 +7,8 @@ add_executable(copyif copyif.cu)
 add_executable(gelu gelu.cu)
 add_executable(fused fused.cu)
 add_executable(softmax softmax.cu)
+add_executable(gemm gemm.cu)  # new
 # 链接 cuBLAS
 find_package(CUDAToolkit REQUIRED)
 target_link_libraries(ctest PRIVATE CUDA::cublas)
+target_link_libraries(gemm PRIVATE CUDA::cublas)

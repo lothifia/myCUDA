@@ -163,9 +163,10 @@ int main() {
     printf("mem copy time %f \n", cpuSecond() - sTime);
 
     // cudaFuncAttribute(mul_shared_mem<32>, cudaFuncAttributePreferredSharedMemoryCarveout, cudaSharedmemCarveoutMaxShared);
-    // mul_shared_mem<32><<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
+    mul_shared_mem<32><<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
     // mul_shared_mem_1d<AM, AK, BN, tmp><<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
-    mul_shared_mem_1d_re<AM, AK, BN, tmp><<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
+    // mul_shared_mem_1d_re<AM, AK, BN, tmp><<<gridDim, blockDim>>> (d_A, d_B, d_C, nx_A, nx_A, ny_A);
+
     CHECK(cudaMemcpy(h_C, d_C, nByte_A, cudaMemcpyDeviceToHost));
     CHECK(cudaDeviceSynchronize());
     printf("total dev time %f \n", cpuSecond() - sTime);
