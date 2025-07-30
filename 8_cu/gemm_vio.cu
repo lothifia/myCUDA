@@ -69,7 +69,7 @@ struct vec_t
 
 //
 template <int tm, int tn, int TA, int TB, int TK , int vec_size>
-__global__ void gemm_tiled_2(float* A, float* B, float* C, int M, int N, int K, bool is_A_transposed, bool is_B_transposed, bool outdot) {
+__global__ void gemm_tiled_2(float* A, float* B, float* C, int M, int N, int K, bool outdot, bool is_A_transposed, bool is_B_transposed) {
     int tid = threadIdx.x;
     int bx = blockIdx.x; // block_x -> number of tiles in x direction
     int by = blockIdx.y; // block_y -> number of tiles in y direction
@@ -99,15 +99,17 @@ __global__ void gemm_tiled_2(float* A, float* B, float* C, int M, int N, int K, 
 
 
     // float c[TA * TB / (tm * tn)]; x : too many regs
-    float c[tm * tn] {0};
-    float reg_tm[tm] {0};
-    float reg_tn[tn] {0};
+    float c[tm * tn];
+    float reg_tm[tm];
+    float reg_tn[tn];
     float* a_ptr = A + bx * TA * K; 
     float* b_ptr = B + by * TB; 
     float* c_ptr = C + bx * TA * N + by * TB;
 
     int tiled_K = (K + TK - 1) / TK;
     for(int k_loop = 0; k_loop < tiled_K; k_loop++) {
+        static_assert(vec_size == 4, "vec_size must be 4");
+        static_assert(total_threads / (TK / vec_size) == 128, "128 row to process mem copy");
         int row_a = tid / copy_T_col_A;
         int row_b = tid / copy_T_col_B;
         int col_a = tid % copy_T_col_A;
@@ -127,7 +129,7 @@ __global__ void gemm_tiled_2(float* A, float* B, float* C, int M, int N, int K, 
         // }
         __syncthreads();
         // inner product
-        // if(!outdot){
+        if(!outdot){
             for(int m = 0; m < tm; m++) {
                 for(int n = 0; n < tn; n++) {
                     for(int p = 0; p < TK; p++) {
@@ -136,23 +138,23 @@ __global__ void gemm_tiled_2(float* A, float* B, float* C, int M, int N, int K, 
                     }
                 }
             }
-        // }
-        // else{
-        // // outter product
-        //     for(int p = 0; p < TK; p++) {
-        //         for(int n = 0; n < tn; n++) {
-        //             reg_tn[n] = b_tiled[t_col + n * threads_in_n + p * TB];
-        //         }
-        //         for(int m = 0; m < tm; m++) {
-        //             reg_tm[m] = a_tiled[(t_row + m * threads_in_m) * TK + p];
-        //         }
-        //         for(int m = 0; m < tm; m++) {
-        //             for(int n = 0; n < tn; n++) {
-        //                 c[m * tn + n] += reg_tm[m] * reg_tn[n];
-        //             }
-        //         }
-        //     }
-        // }
+        }
+        // outter product
+        else{
+            for(int p = 0; p < TK; p++) {
+                for(int n = 0; n < tn; n++) {
+                    reg_tn[n] = b_tiled[t_col + n * threads_in_n + p * TB];
+                }
+                for(int m = 0; m < tm; m++) {
+                    reg_tm[m] = a_tiled[(t_row + m * threads_in_m) * TK + p];
+                }
+                for(int m = 0; m < tm; m++) {
+                    for(int n = 0; n < tn; n++) {
+                        c[m * tn + n] += reg_tm[m] * reg_tn[n];
+                    }
+                }
+            }
+        }
         __syncthreads();
     }
 
@@ -195,17 +197,17 @@ __global__ void gemm_tiled_2_vecIO(float* A, float* B, float* C, int M, int N, i
 
 
     // float c[TA * TB / (tm * tn)]; x : too many regs
-    float c[tm * tn];
-    float reg_tm[tm];
-    float reg_tn[tn];
+    float c[tm * tn] {0};
+    float reg_tm[tm] {0};
+    float reg_tn[tn] {0};
     float* a_ptr = A + bx * TA * K; 
     float* b_ptr = B + by * TB; 
     float* c_ptr = C + bx * TA * N + by * TB;
 
     int tiled_K = (K + TK - 1) / TK;
     for(int k_loop = 0; k_loop < tiled_K; k_loop++) {
-        static_assert(vec_size == 4, "vec_size must be 4");
-        static_assert(total_threads / (TK / vec_size) == 128, "128 row to process mem copy");
+        // static_assert(vec_size == 4, "vec_size must be 4");
+        // static_assert(total_threads / (TK / vec_size) == 128, "128 row to process mem copy");
         int row_a = tid / copy_T_col_A;
         int row_b = tid / copy_T_col_B;
         int col_a = tid % copy_T_col_A;
@@ -299,6 +301,12 @@ __global__ void gemm_tiled_2_vecIO(float* A, float* B, float* C, int M, int N, i
                 // could loop
                 // wrong !: reinterpret_cast<float4*>(c_ptr + row_in_gmem * TB + col_in_gmem)[0] = reinterpret_cast<float4*>(a_tiled + t_row * smem_col + col_in_smem)[0];  
                 reinterpret_cast<float4*>(c_ptr + row_in_gmem * N + col_in_gmem)[0] = reinterpret_cast<float4*>(a_tiled + t_row * smem_col + t_col * vec_size)[0];  
+                // if(bx == 0 && by == 0) {
+                //     if(row_in_gmem * N + col_in_gmem == 64) {
+                //         printf(" data in smem %f \n", a_tiled[t_row * smem_col + t_col + n * threads_in_n]);
+                //         printf("t_row %d t_col %d \n", t_row, t_col);
+                //     }
+                // }
 
                 __syncthreads();
             }
@@ -312,101 +320,6 @@ __global__ void gemm_tiled_2_vecIO(float* A, float* B, float* C, int M, int N, i
     //         c_ptr[(t_row + m * threads_in_m) * N + n * threads_in_n + t_col] = c[m * tn + n];
     //     }
     // }
-}
-
-// perfromace test
-#define CEIL_DIV(M, N) (((M) + (N)-1) / (N))
-
-template <const int BM, const int BN, const int BK, const int TM, const int TN>
-__global__ void __launch_bounds__((BM * BN) / (TM * TN), 1)
-    sgemm2DBlocktiling(int M, int N, int K, float alpha, const float *A,
-                       const float *B, float beta, float *C) {
-  const uint cRow = blockIdx.y;
-  const uint cCol = blockIdx.x;
-
-  const uint totalResultsBlocktile = BM * BN;
-  // A thread is responsible for calculating TM*TN elements in the blocktile
-  const uint numThreadsBlocktile = totalResultsBlocktile / (TM * TN);
-
-  // ResultsPerBlock / ResultsPerThread == ThreadsPerBlock
-//   assert(numThreadsBlocktile == blockDim.x);
-
-  // BN/TN are the number of threads to span a column
-  const int threadCol = threadIdx.x % (BN / TN);
-  const int threadRow = threadIdx.x / (BN / TN);
-
-  // allocate space for the current blocktile in smem
-  __shared__ float As[BM * BK];
-  __shared__ float Bs[BK * BN];
-
-  // Move blocktile to beginning of A's row and B's column
-  A += cRow * BM * K;
-  B += cCol * BN;
-  C += cRow * BM * N + cCol * BN;
-
-  // calculating the indices that this thread will load into SMEM
-  const uint innerRowA = threadIdx.x / BK;
-  const uint innerColA = threadIdx.x % BK;
-  // calculates the number of rows of As that are being loaded in a single step
-  // by a single block
-  const uint strideA = numThreadsBlocktile / BK;
-  const uint innerRowB = threadIdx.x / BN;
-  const uint innerColB = threadIdx.x % BN;
-  // for both As and Bs we want each load to span the full column-width, for
-  // better GMEM coalescing (as opposed to spanning full row-width and iterating
-  // across columns)
-  const uint strideB = numThreadsBlocktile / BN;
-
-  // allocate thread-local cache for results in registerfile
-  float threadResults[TM * TN] = {0.0};
-  // register caches for As and Bs
-  float regM[TM] = {0.0};
-  float regN[TN] = {0.0};
-
-  // outer-most loop over block tiles
-  for (uint bkIdx = 0; bkIdx < K; bkIdx += BK) {
-    // populate the SMEM caches
-    for (uint loadOffset = 0; loadOffset < BM; loadOffset += strideA) {
-      As[(innerRowA + loadOffset) * BK + innerColA] =
-          A[(innerRowA + loadOffset) * K + innerColA];
-    }
-    for (uint loadOffset = 0; loadOffset < BK; loadOffset += strideB) {
-      Bs[(innerRowB + loadOffset) * BN + innerColB] =
-          B[(innerRowB + loadOffset) * N + innerColB];
-    }
-    __syncthreads();
-
-    // advance blocktile
-    A += BK;     // move BK columns to right
-    B += BK * N; // move BK rows down
-
-    // calculate per-thread results
-    for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
-      // block into registers
-      for (uint i = 0; i < TM; ++i) {
-        regM[i] = As[(threadRow * TM + i) * BK + dotIdx];
-      }
-      for (uint i = 0; i < TN; ++i) {
-        regN[i] = Bs[dotIdx * BN + threadCol * TN + i];
-      }
-      for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {
-        for (uint resIdxN = 0; resIdxN < TN; ++resIdxN) {
-          threadResults[resIdxM * TN + resIdxN] +=
-              regM[resIdxM] * regN[resIdxN];
-        }
-      }
-    }
-    __syncthreads();
-  }
-
-  // write out the results
-  for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {
-    for (uint resIdxN = 0; resIdxN < TN; ++resIdxN) {
-      C[(threadRow * TM + resIdxM) * N + threadCol * TN + resIdxN] =
-          alpha * threadResults[resIdxM * TN + resIdxN] +
-          beta * C[(threadRow * TM + resIdxM) * N + threadCol * TN + resIdxN];
-    }
-  }
 }
 
 
@@ -467,7 +380,7 @@ int main() {
     printf("Performing GEMM...\n");
     
     // Note: The result will be stored in d_C
-    CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 
+CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 
                          N, M, K,              // 注意：M和N交换了位置
                          &alpha, 
                          d_B, N,               // 注意：B在前，A在后
@@ -479,7 +392,7 @@ int main() {
     CUBLAS_CHECK(cublasDestroy(handle));
     printf("cuBLAS GEMM finished.\n");
 
-    // // // // 1.0
+    // // 1.0
     // const int TK = 32;
     // int tiled_M = (M + TK - 1) / TK;
     // int tiled_K = (K + TK - 1) / TK;
@@ -501,10 +414,8 @@ int main() {
     dim3 gird_tiled(M / TA, N / TB);
 
     bool outdot = true;
-    gemm_tiled_2<tm, tn, TA, TB, TK, vec_size><<<gird_tiled, block_tiled>>>(d_A, d_B, d_C, M, N, K, false, false, outdot);
-    // gemm_tiled_2_vecIO<tm, tn, TA, TB, TK, vec_size><<<gird_tiled, block_tiled>>>(d_A, d_B, d_C, M, N, K, outdot, false, false);
-
-    sgemm2DBlocktiling<TA, TB, TK, tm, tn><<<gird_tiled, block_tiled>>>(M, N, K, alpha, d_A, d_B, beta, d_C);
+    // gemm_tiled_2<tm, tn, TA, TB, TK, vec_size><<<gird_tiled, block_tiled>>>(d_A, d_B, d_C, M, N, K, outdot, false, false);
+    gemm_tiled_2_vecIO<tm, tn, TA, TB, TK, vec_size><<<gird_tiled, block_tiled>>>(d_A, d_B, d_C, M, N, K, outdot, false, false);
 
     // 5. Copy result from device to host
     // 【修正】从 d_C 拷回数据到 C
@@ -529,7 +440,6 @@ int main() {
         if(C[i] - C_ref[i] >  1e-5) {
             printf("Verification FAILED at index %d! Got %f, expected %f\n", i, C[i], C_ref[i]);
             correct = false;
-            break;
         }
     }
     if(correct) {
